@@ -1,2 +1,11 @@
 # Practical Machine Learning: Peer Assignment
+pml_training <- read.csv("pml-training.csv")
+inTrain <- createDataPartition(y=pml_training$classe,
+	p=0.6, list=F)
 
+tr <- pml_training[inTrain,]
+te <- pml_training[-inTrain,]
+
+table(t$classe)
+fit<-train(classe~.,data=t,method="glm"
+Error: glm models can only use 2-class outcomes
