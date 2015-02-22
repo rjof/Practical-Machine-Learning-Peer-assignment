@@ -1,11 +1,82 @@
 # Practical Machine Learning: Peer Assignment
-pml_training <- read.csv("pml-training.csv")
-inTrain <- createDataPartition(y=pml_training$classe,
+Machine learning algorithm to predict activity quality from activity monitors using this data set:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+To know how the data was collected read: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+## Loading data
+
+```{r}
+set.seed(1975)
+library(caret)
+data <- read.csv("pml-training.csv")
+```
+
+Removing not used columns. These have data about the person, date and time, and a id.
+```{r}
+data <- data[,8:160]
+inTrain <- createDataPartition(y=data$classe,
 	p=0.6, list=F)
+tr <- data[inTrain,]
+te <- data[-inTrain,]
+```
 
-tr <- pml_training[inTrain,]
-te <- pml_training[-inTrain,]
 
-table(t$classe)
-fit<-train(classe~.,data=t,method="glm"
-Error: glm models can only use 2-class outcomes
+## Create training and testing partitions.
+First removing **NA** values and **"#DIV/0!"** values and then creating the training (tr) and testing (te) sets.
+
+```{r}
+inTrain <- createDataPartition(y=data$classe,
+	p=0.6, list=F)
+data[is.na(data)] <- 0
+data[data == "#DIV/0!"] <- 0
+tr <- data[inTrain,]
+te <- data[-inTrain,]
+```
+
+## Reducing dimensions in the data set
+
+As 152 variables is a big amount for a complex algorithm like the one used, **random forest**, we look for variables with low variance and remove them.
+```{r}
+nzv <- nearZeroVar(tr, saveMetrics=T)
+tr <- tr[,!nzv$nzv]
+```
+
+## Constructing the predictor
+The predictor consists in a preproces with **principal component analysis** and a model based in **random forest** bootstraped in 25 times for cross validation.
+
+```{r}
+system.time(preProc <- preProcess(tr[,-53],method="pca"))
+system.time(trainPC <- predict(preProc, tr[,-53]))
+system.time(modelFit <- train(tr$classe ~ ., data=trainPC))
+modelFit
+```
+
+## Testing the model
+
+The model results with a 0.97 accuracy over the testing set.
+
+```{r}
+te <- te[,!nzv$nzv]
+testPC <- predict(preProc, te[,-53])
+confusionMatrix(te$classe,predict(modelFit,testPC))
+```
+
+## Testing with the 20 given cases for that propouse.
+
+```{r}
+testing <- read.csv("pml-testing.csv")
+testing <- testing[,8:160]
+testing <- testing[,!nzv$nzv]
+testingPredictions <- predict(preProc, testing[,-53])
+answers <- predict(modelFit, testingPredictions)
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_write_files(answers)
+```
